@@ -11,7 +11,7 @@ import (
     "time"
 )
 
-var VERSION [2]string = [2]string{"0.0.17", "Nearly There"}
+var VERSION [2]string = [2]string{"0.1.0", "Internet Truffle"}
 var MAX_CLIENTS int = 100000 // <— arbitrary
 var IDENT_TIMEOUT int64 = 1800
 
