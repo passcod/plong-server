@@ -10,14 +10,16 @@ import (
     "strconv"
 )
 
-// A million clients should be plenty.
-// This is not completely arbirtrary:
-// I estimate ~50 potential bytes per
-// client, thus 50MiB max memory usage
-// (although we'll probably hit an HTTP
-// bottleneck before reaching that).
-const MAX_CLIENTS int = 1000000
-var clientIDs []int
+var VERSION [2]string = [2]string{"0.0.10", "Binary Shite"}
+const MAX_CLIENTS int = 100000 // <— arbitrary
+
+type Clients map[int]int
+var clients Clients = make(Clients)
+
+type JustOK struct {
+  Ok bool
+}
+
 
 func main() {
     http.HandleFunc("/", hello)
@@ -29,6 +31,7 @@ func main() {
     http.HandleFunc("/talk", talk_to)
     http.HandleFunc("/hear", hear_from)
     
+    fmt.Printf("Plong server v.%s “%s” started.\n", VERSION[0], VERSION[1])
     fmt.Printf("Listening on port %s...\n", os.Getenv("PORT"))
     err := http.ListenAndServe(":"+os.Getenv("PORT"), nil)
     if err != nil {
@@ -45,10 +48,10 @@ func log_request(req *http.Request) {
     req.Header["User-Agent"][0])
 }
 
-func indexOf(slice []int, value int) int {
-  for p, v := range slice {
-    if (v == value) {
-      return p
+func find_private(public int) int {
+  for priv, pub := range clients {
+    if (pub == public) {
+      return priv
     }
   }
   return -1
@@ -64,7 +67,7 @@ func hello(res http.ResponseWriter, req *http.Request) {
     }
     
     enc := json.NewEncoder(res)
-    hi := Hello{"0.0.7", true, false}
+    hi := Hello{VERSION[0], true, false}
     
     if err := enc.Encode(&hi); err != nil {
       fmt.Println(err)
@@ -80,32 +83,50 @@ func status(res http.ResponseWriter, req *http.Request) {
     }
     
     enc := json.NewEncoder(res)
-    enc.Encode(Status{len(clientIDs), MAX_CLIENTS})
+    enc.Encode(Status{len(clients), MAX_CLIENTS})
 }
 
 func new_client(res http.ResponseWriter, req *http.Request) {
     log_request(req)
     
-    if len(clientIDs) == MAX_CLIENTS {
-      fmt.Fprintf(res, "%d", -1)
+    enc := json.NewEncoder(res)
+    
+    if len(clients) == MAX_CLIENTS {
+      enc.Encode(JustOK{false})
       return
     }
        
-    new_id := rand.Int()
-    for indexOf(clientIDs, new_id) != -1 {
-      new_id = rand.Int()
-    }
-    clientIDs = append(clientIDs, new_id)
+    new_pub, new_priv := rand.Int(), rand.Int()
     
-    fmt.Fprintf(res, "%d", new_id)
+    // Make sure new_priv is unique
+    for {
+      _, ok := clients[new_priv]
+      if !ok {
+        break
+      }
+      new_priv = rand.Int()
+    }
+    
+    // Make sure new_pub is unique
+    for _, pub := range clients {
+      for pub == new_pub {
+        new_pub = rand.Int()
+      }
+    }
+    
+    // Actually create it
+    clients[new_priv] = new_pub
+    
+    
+    type ClientIDs struct {
+      Private int
+      Public int
+    }
+    enc.Encode(ClientIDs{new_priv, new_pub})
 }
 
 func del_client(res http.ResponseWriter, req *http.Request) {
     log_request(req)
-    
-    type RespOK struct {
-      Ok bool
-    }
     
     enc := json.NewEncoder(res)
     
@@ -115,20 +136,19 @@ func del_client(res http.ResponseWriter, req *http.Request) {
     
     id, err := strconv.Atoi(body)
     if err != nil {
-      enc.Encode(RespOK{false})
+      enc.Encode(JustOK{false})
       return
     }
     
-    i := indexOf(clientIDs, id)
-    if i == -1 {
-      enc.Encode(RespOK{false})
+    _, ok := clients[id]
+    if !ok {
+      enc.Encode(JustOK{false})
       return
     }
     
-    // Remove from slice
-    clientIDs = append(clientIDs[:i], clientIDs[i+1:]...)
+    delete(clients, id)
     
-    enc.Encode(RespOK{true})
+    enc.Encode(JustOK{true})
 }
 
 func new_identity(res http.ResponseWriter, req *http.Request) {
