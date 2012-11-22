@@ -8,35 +8,48 @@ import (
     "bytes"
     "math/rand"
     "strconv"
+    "time"
 )
 
-var VERSION [2]string = [2]string{"0.0.10", "Binary Shite"}
-const MAX_CLIENTS int = 100000 // <— arbitrary
+var VERSION [2]string = [2]string{"0.0.17", "Nearly There"}
+var MAX_CLIENTS int = 100000 // <— arbitrary
+var IDENT_TIMEOUT int64 = 1800
 
-type Clients map[int]int
-var clients Clients = make(Clients)
+type Ident struct {
+  Private int
+  Created time.Time
+}
 
 type JustOK struct {
   Ok bool
 }
 
+var clients map[int]int = make(map[int]int)
+var idents map[string]Ident = make(map[string]Ident)
+
 
 func main() {
-    http.HandleFunc("/", hello)
-    http.HandleFunc("/wuu2", status)
-    http.HandleFunc("/ohai", new_client)
-    http.HandleFunc("/obai", del_client)
-    http.HandleFunc("/iam", new_identity)
-    http.HandleFunc("/whois", find_identity)
-    http.HandleFunc("/talk", talk_to)
-    http.HandleFunc("/hear", hear_from)
-    
-    fmt.Printf("Plong server v.%s “%s” started.\n", VERSION[0], VERSION[1])
-    fmt.Printf("Listening on port %s...\n", os.Getenv("PORT"))
-    err := http.ListenAndServe(":"+os.Getenv("PORT"), nil)
-    if err != nil {
-      panic(err)
-    }
+  mux := http.NewServeMux()
+  mux.HandleFunc("/", hello)
+  mux.HandleFunc("/wuu2", status)
+  mux.HandleFunc("/ohai", new_client)
+  mux.HandleFunc("/obai", del_client)
+  mux.HandleFunc("/iam", new_identity)
+  mux.HandleFunc("/whois", find_identity)
+  
+  serv := &http.Server{
+    Addr: ":" + os.Getenv("PORT"),
+    Handler: mux,
+    ReadTimeout: 30 * time.Second,
+    WriteTimeout: 30 * time.Second,
+  }
+  
+  fmt.Printf("Plong server v.%s “%s” started.\n", VERSION[0], VERSION[1])
+  fmt.Printf("Listening on port %s...\n", os.Getenv("PORT"))
+  err := serv.ListenAndServe()
+  if err != nil {
+    panic(err)
+  }
 }
 
 func log_request(req *http.Request) {
@@ -48,17 +61,16 @@ func log_request(req *http.Request) {
     req.Header["User-Agent"][0])
 }
 
-func find_private(public int) int {
-  for priv, pub := range clients {
-    if (pub == public) {
-      return priv
-    }
-  }
-  return -1
+func set_headers(res http.ResponseWriter, code int) {
+  res.Header().Set("Access-Control-Allow-Origin", "*")
+  res.Header().Set("Content-type", "application/json")
+  res.WriteHeader(code)
 }
+
 
 func hello(res http.ResponseWriter, req *http.Request) {
     log_request(req)
+    set_headers(res, 200)
     
     type Hello struct {
       Version string
@@ -74,16 +86,29 @@ func hello(res http.ResponseWriter, req *http.Request) {
     }
 }
 
+
+func check_idents() int {
+  for k, i := range idents {
+    if _, ok := clients[i.Private]; !ok || i.Created.Before(time.Unix(time.Now().Unix() - IDENT_TIMEOUT, 0)) {
+      delete(idents, k)
+    }
+  }
+  
+  return len(idents)
+}
+
 func status(res http.ResponseWriter, req *http.Request) {
     log_request(req)
+    set_headers(res, 200)
     
     type Status struct {
       ConnectedClients int
       MaxClients int
+      ActiveIdents int
     }
     
     enc := json.NewEncoder(res)
-    enc.Encode(Status{len(clients), MAX_CLIENTS})
+    enc.Encode(Status{len(clients), MAX_CLIENTS, check_idents()})
 }
 
 func new_client(res http.ResponseWriter, req *http.Request) {
@@ -92,6 +117,7 @@ func new_client(res http.ResponseWriter, req *http.Request) {
     enc := json.NewEncoder(res)
     
     if len(clients) == MAX_CLIENTS {
+      set_headers(res, 503)
       enc.Encode(JustOK{false})
       return
     }
@@ -118,11 +144,13 @@ func new_client(res http.ResponseWriter, req *http.Request) {
     clients[new_priv] = new_pub
     
     
-    type ClientIDs struct {
+    type ClientID struct {
       Private int
       Public int
     }
-    enc.Encode(ClientIDs{new_priv, new_pub})
+    
+    set_headers(res, 200)
+    enc.Encode(ClientID{new_priv, new_pub})
 }
 
 func del_client(res http.ResponseWriter, req *http.Request) {
@@ -136,41 +164,72 @@ func del_client(res http.ResponseWriter, req *http.Request) {
     
     id, err := strconv.Atoi(body)
     if err != nil {
+      set_headers(res, 400)
       enc.Encode(JustOK{false})
       return
     }
     
     _, ok := clients[id]
     if !ok {
+      set_headers(res, 404)
       enc.Encode(JustOK{false})
       return
     }
     
     delete(clients, id)
     
+    set_headers(res, 200)
     enc.Encode(JustOK{true})
 }
 
 func new_identity(res http.ResponseWriter, req *http.Request) {
     log_request(req)
     
-    fmt.Fprintln(res, "new identity")
+    enc := json.NewEncoder(res)
+    dec := json.NewDecoder(req.Body)
+    
+    type IdReq struct {
+      Private int
+      Passphrase string
+    }
+    
+    var ir IdReq
+    if err := dec.Decode(&ir); err != nil {
+      set_headers(res, 400)
+      enc.Encode(JustOK{false})
+      return
+    }
+    
+    id := Ident{ir.Private, time.Now()}
+    idents[ir.Passphrase] = id
+    
+    set_headers(res, 200)
+    enc.Encode(JustOK{true})
 }
 
 func find_identity(res http.ResponseWriter, req *http.Request) {
     log_request(req)
     
-    fmt.Fprintln(res, "find identity")
-}
-
-func talk_to(res http.ResponseWriter, req *http.Request) {
-    log_request(req)
+    enc := json.NewEncoder(res)
     
-    fmt.Fprintln(res, "talk")
-}
-
-func hear_from(res http.ResponseWriter, req *http.Request) {
-    log_request(req)
+    buf := new(bytes.Buffer)
+    buf.ReadFrom(req.Body)
+    phrase := buf.String()
     
-    fmt.Fprintln(res, "hear")
+    check_idents()
+    
+    i, ok := idents[phrase]
+    if !ok {
+      set_headers(res, 404)
+      enc.Encode(JustOK{false})
+      return
+    }
+    
+    type IdResp struct {
+      Public int
+      Created time.Time
+    }
+    
+    set_headers(res, 200)
+    enc.Encode(IdResp{clients[i.Private], i.Created})
 }
