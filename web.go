@@ -5,30 +5,20 @@ import (
     "encoding/json"
     "net/http"
     "os"
-    "bytes"
-    "math/rand"
-    "strconv"
     "time"
+//    "code.google.com/p/go.net/websocket"
+    "plong"
 )
 
-var VERSION [2]string = [2]string{"0.1.0", "Internet Truffle"}
-var MAX_CLIENTS int = 100000 // <— arbitrary
-var IDENT_TIMEOUT int64 = 1800
-
-type Ident struct {
-  Private int
-  Created time.Time
-}
+const Version string = "0.2.6"
 
 type JustOK struct {
   Ok bool
 }
 
-var clients map[int]int = make(map[int]int)
-var idents map[string]Ident = make(map[string]Ident)
-
-
 func main() {
+  plong.Configure(plong.Config{1800})
+  
   mux := http.NewServeMux()
   mux.HandleFunc("/", hello)
   mux.HandleFunc("/wuu2", status)
@@ -37,15 +27,20 @@ func main() {
   mux.HandleFunc("/iam", new_identity)
   mux.HandleFunc("/whois", find_identity)
   
+  port := os.Getenv("PORT")
+  if port == "" {
+    port = "1501"
+  }
+  
   serv := &http.Server{
-    Addr: ":" + os.Getenv("PORT"),
+    Addr: ":" + port,
     Handler: mux,
     ReadTimeout: 30 * time.Second,
     WriteTimeout: 30 * time.Second,
   }
   
-  fmt.Printf("Plong server v.%s “%s” started.\n", VERSION[0], VERSION[1])
-  fmt.Printf("Listening on port %s...\n", os.Getenv("PORT"))
+  fmt.Printf("Plong server v.%s started.\n", Version)
+  fmt.Printf("Listening on port %s...\n", port)
   err := serv.ListenAndServe()
   if err != nil {
     panic(err)
@@ -79,7 +74,7 @@ func hello(res http.ResponseWriter, req *http.Request) {
     }
     
     enc := json.NewEncoder(res)
-    hi := Hello{VERSION[0], true, false}
+    hi := Hello{Version, true, false}
     
     if err := enc.Encode(&hi); err != nil {
       fmt.Println(err)
@@ -87,96 +82,48 @@ func hello(res http.ResponseWriter, req *http.Request) {
 }
 
 
-func check_idents() int {
-  for k, i := range idents {
-    if _, ok := clients[i.Private]; !ok || i.Created.Before(time.Unix(time.Now().Unix() - IDENT_TIMEOUT, 0)) {
-      delete(idents, k)
-    }
-  }
-  
-  return len(idents)
-}
-
 func status(res http.ResponseWriter, req *http.Request) {
     log_request(req)
     set_headers(res, 200)
     
     type Status struct {
-      ConnectedClients int
-      MaxClients int
-      ActiveIdents int
+      Peers int
+      Identities int
     }
     
     enc := json.NewEncoder(res)
-    enc.Encode(Status{len(clients), MAX_CLIENTS, check_idents()})
+    enc.Encode(Status{plong.PeerCount(), plong.IdentityCount()})
 }
 
 func new_client(res http.ResponseWriter, req *http.Request) {
     log_request(req)
+    set_headers(res, 200)
+    
+    client := plong.NewPeer()
     
     enc := json.NewEncoder(res)
-    
-    if len(clients) == MAX_CLIENTS {
-      set_headers(res, 503)
-      enc.Encode(JustOK{false})
-      return
-    }
-       
-    new_pub, new_priv := rand.Int(), rand.Int()
-    
-    // Make sure new_priv is unique
-    for {
-      _, ok := clients[new_priv]
-      if !ok {
-        break
-      }
-      new_priv = rand.Int()
-    }
-    
-    // Make sure new_pub is unique
-    for _, pub := range clients {
-      for pub == new_pub {
-        new_pub = rand.Int()
-      }
-    }
-    
-    // Actually create it
-    clients[new_priv] = new_pub
-    
-    
-    type ClientID struct {
-      Private int
-      Public int
-    }
-    
-    set_headers(res, 200)
-    enc.Encode(ClientID{new_priv, new_pub})
+    enc.Encode(client)
 }
 
 func del_client(res http.ResponseWriter, req *http.Request) {
     log_request(req)
-    
     enc := json.NewEncoder(res)
+    dec := json.NewDecoder(req.Body)
+
+    type jString struct {
+      Id string
+    }
     
-    buf := new(bytes.Buffer)
-    buf.ReadFrom(req.Body)
-    body := buf.String()
-    
-    id, err := strconv.Atoi(body)
-    if err != nil {
+    var j jString
+    if err := dec.Decode(&j); err != nil {
       set_headers(res, 400)
       enc.Encode(JustOK{false})
+      fmt.Println(err)
       return
     }
-    
-    _, ok := clients[id]
-    if !ok {
-      set_headers(res, 404)
-      enc.Encode(JustOK{false})
-      return
-    }
-    
-    delete(clients, id)
+
+    peer := plong.FindPrivatePeer(j.Id)
+    peer.Destroy()
     
     set_headers(res, 200)
     enc.Encode(JustOK{true})
@@ -187,21 +134,22 @@ func new_identity(res http.ResponseWriter, req *http.Request) {
     
     enc := json.NewEncoder(res)
     dec := json.NewDecoder(req.Body)
-    
+
     type IdReq struct {
-      Private int
+      Private string
       Passphrase string
     }
     
     var ir IdReq
-    if err := dec.Decode(&ir); err != nil {
+    if err := dec.Decode(&ir); err != nil || ir.Private == "" || ir.Passphrase == "" {
       set_headers(res, 400)
       enc.Encode(JustOK{false})
+      fmt.Println(err)
       return
     }
     
-    id := Ident{ir.Private, time.Now()}
-    idents[ir.Passphrase] = id
+    peer := plong.FindPrivatePeer(ir.Private)
+    peer.NewIdentity(ir.Passphrase)
     
     set_headers(res, 200)
     enc.Encode(JustOK{true})
@@ -211,14 +159,21 @@ func find_identity(res http.ResponseWriter, req *http.Request) {
     log_request(req)
     
     enc := json.NewEncoder(res)
+    dec := json.NewDecoder(req.Body)
+
+    type jPass struct {
+      Passphrase string
+    }
     
-    buf := new(bytes.Buffer)
-    buf.ReadFrom(req.Body)
-    phrase := buf.String()
+    var j jPass
+    if err := dec.Decode(&j); err != nil {
+      set_headers(res, 400)
+      enc.Encode(JustOK{false})
+      fmt.Println(err)
+      return
+    }
     
-    check_idents()
-    
-    i, ok := idents[phrase]
+    i, ok := plong.FindIdentity(j.Passphrase)
     if !ok {
       set_headers(res, 404)
       enc.Encode(JustOK{false})
@@ -226,10 +181,10 @@ func find_identity(res http.ResponseWriter, req *http.Request) {
     }
     
     type IdResp struct {
-      Public int
+      Public string
       Created time.Time
     }
     
     set_headers(res, 200)
-    enc.Encode(IdResp{clients[i.Private], i.Created})
+    enc.Encode(IdResp{i.Subject.PublicId, i.CreatedAt})
 }
