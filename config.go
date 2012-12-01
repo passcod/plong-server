@@ -13,3 +13,6 @@ var Mode string = "rwx"
 
 // Plong configuration.
 var PlongConfig plong.Config = plong.Config{1800}
+
+// Connection buffer size
+var BufferSize int = 256

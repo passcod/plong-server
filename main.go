@@ -21,7 +21,7 @@ func main() {
 	mux.HandleFunc("/iam", routeNewIdentity)
 	mux.HandleFunc("/whois", routeFindIdentity)
 
-	//mux.Handle("/ws", websocket.Handler(wsHandler))
+	mux.Handle("/ws/", websocket.Handler(wsHandler))
 
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -74,7 +74,4 @@ func respond(res http.ResponseWriter, code int, v interface{}) {
 			enc.Encode(fail{err.Error()})
 		}
 	}
-}
-
-func wsHandler(ws *websocket.Conn) {
 }
