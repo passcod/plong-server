@@ -6,13 +6,16 @@ _Pseudo-peer-to-peer API._
 COMPILE
 -------
 
-I assume you have a working [Go](http://golang.org) install.
+I assume you have a working [Go](http://golang.org) install, set up using the
+recommended `~/go/{bin,pkg,src}/` structure.
 
-1. Clone this repo.
-2. Switch to plong-lib branch: `git checkout plong-lib`.
-3. Build & install the lib: `go build && go install`.
-4. Switch to master branch: `git checkout master`.
-5. Get dependencies & build the server: `go get`.
+1. Clone this repo into ~/go/src/plong: `git clone git://github.com/passcod/plong-server.git ~/go/src/plong`.
+2. Cd into it: `cd ~/go/src/plong`.
+3. Switch to plong-lib branch: `git checkout plong-lib`.
+4. Build & install the lib: `go build && go install`.
+5. Clone this repo (yes, again) into ~/go/src/plong-server: `git clone git://github.com/passcod/plong-server.git ~/go/src/plong-server`.
+6. Cd into it: `cd ~/go/src/plong-server`.
+7. Get dependencies & build the server: `go get`.
 
 
 INSTALL
