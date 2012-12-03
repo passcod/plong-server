@@ -26,7 +26,11 @@ func (c *Connection) Reader() {
 		if message[0] == '\x1b' {
 			c.Control(message[1:])
 		} else {
-			c.PassThru(message)
+			if whatMode("x") {
+				c.PassThru(message)
+			}
+			// If passthru is disabled, silently ignore
+			// all non-control messages.
 		}
 	}
 	c.Close()
@@ -52,7 +56,7 @@ func (c *Connection) Close() {
 func wsHandler(ws *websocket.Conn) {
 	url := strings.Split(fmt.Sprintf("%s", ws.LocalAddr()), "/")
 	id := url[len(url)-1]
-	peer := plong.FindPublicPeer(id)
+	peer := plong.FindPrivatePeer(id)
 
 	if peer.PrivateId == "" {
 		fmt.Printf("[WebSocket] Error: No such peer “%s”.\n", id)

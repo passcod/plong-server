@@ -10,7 +10,7 @@ import (
 func wsNewIdentity(c *Connection, args []string) {
 	arg := []byte(strings.Join(args, " "))
 	type identRequest struct {
-		Private    string
+		PrivateId  string
 		Passphrase string
 	}
 
@@ -20,12 +20,12 @@ func wsNewIdentity(c *Connection, args []string) {
 		return
 	}
 
-	if ir.Private == "" || ir.Passphrase == "" {
+	if ir.PrivateId == "" || ir.Passphrase == "" {
 		wsJson(c, "There’s a blank field or two here.", true)
 		return
 	}
 
-	peer := plong.FindPrivatePeer(ir.Private)
+	peer := plong.FindPrivatePeer(ir.PrivateId)
 	if peer.PublicId == "" {
 		wsJson(c, "No such peer.", true)
 		return
@@ -53,8 +53,8 @@ func wsFindIdentity(c *Connection, args []string) {
 	}
 
 	type identityResponse struct {
-		Public  string
-		Created time.Time
+		PublicId string
+		Created  time.Time
 	}
 
 	wsJson(c, identityResponse{i.Subject.PublicId, i.CreatedAt}, false)

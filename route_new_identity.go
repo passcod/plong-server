@@ -12,7 +12,7 @@ func routeNewIdentity(res http.ResponseWriter, req *http.Request) {
 	dec := json.NewDecoder(req.Body)
 
 	type identRequest struct {
-		Private    string
+		PrivateId  string
 		Passphrase string
 	}
 
@@ -22,12 +22,12 @@ func routeNewIdentity(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if ir.Private == "" || ir.Passphrase == "" {
+	if ir.PrivateId == "" || ir.Passphrase == "" {
 		respond(res, 400, "There’s a blank field or two here.")
 		return
 	}
 
-	peer := plong.FindPrivatePeer(ir.Private)
+	peer := plong.FindPrivatePeer(ir.PrivateId)
 	if peer.PublicId == "" {
 		respond(res, 404, "No such peer.")
 		return

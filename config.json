@@ -1,0 +1,5 @@
+{
+	"mode": "hwx",
+	"identity_timeout": 1800,
+	"buffer_size": 256
+}

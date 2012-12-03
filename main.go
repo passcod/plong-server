@@ -11,18 +11,27 @@ import (
 )
 
 func main() {
+	readConfig()
 	plong.Configure(PlongConfig)
 
 	mux := http.NewServeMux()
+	
+	// Always handle root, even if the HTTP API
+	// is disabled.
 	mux.HandleFunc("/", routeStatus)
-	mux.HandleFunc("/wuu2", routeStatus)
-	mux.HandleFunc("/ohai", routeNewClient)
-	mux.HandleFunc("/obai", routeDelClient)
-	mux.HandleFunc("/iam", routeNewIdentity)
-	mux.HandleFunc("/whois", routeFindIdentity)
-
-	mux.Handle("/ws/", websocket.Handler(wsHandler))
-
+	
+	if whatMode("h") {
+		mux.HandleFunc("/wuu2", routeStatus)
+		mux.HandleFunc("/ohai", routeNewClient)
+		mux.HandleFunc("/obai", routeDelClient)
+		mux.HandleFunc("/iam", routeNewIdentity)
+		mux.HandleFunc("/whois", routeFindIdentity)
+	}
+	
+	if whatMode("w") {
+		mux.Handle("/ws/", websocket.Handler(wsHandler))
+	}
+	
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "1501"
@@ -35,7 +44,7 @@ func main() {
 		WriteTimeout: 30 * time.Second,
 	}
 
-	fmt.Printf("Plong server v.%s started.\n", Version)
+	fmt.Printf("Plong server v.%s started (mode: %s).\n", Version, Mode)
 	fmt.Printf("Listening on port %s...\n", port)
 	err := serv.ListenAndServe()
 	if err != nil {

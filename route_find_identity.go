@@ -29,8 +29,8 @@ func routeFindIdentity(res http.ResponseWriter, req *http.Request) {
 	}
 
 	type identityResponse struct {
-		Public  string
-		Created time.Time
+		PublicId string
+		Created  time.Time
 	}
 
 	respond(res, 200, identityResponse{i.Subject.PublicId, i.CreatedAt})

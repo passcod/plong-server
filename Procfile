@@ -1,1 +1,0 @@
-web: plong-server

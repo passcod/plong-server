@@ -12,7 +12,7 @@ func routeDelClient(res http.ResponseWriter, req *http.Request) {
 	dec := json.NewDecoder(req.Body)
 
 	type anid struct {
-		Id string
+		PrivateId string
 	}
 
 	var j anid
@@ -22,7 +22,7 @@ func routeDelClient(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	peer := plong.FindPrivatePeer(j.Id)
+	peer := plong.FindPrivatePeer(j.PrivateId)
 	peer.Destroy()
 
 	respond(res, 200, nil)
