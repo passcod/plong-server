@@ -17,7 +17,7 @@ func (c *Connection) PassThru(message string) {
 		rem, ok := wsHub[c.link]
 		if !ok {
 			fmt.Printf("%#v\n", rem)
-			wsJson(c, fail{"Peer not connected."})
+			wsJson(c, fail{"Peer not connected."}, false)
 			return
 		}
 		
@@ -39,9 +39,9 @@ func wsLinkStatus(c *Connection, args []string) {
 	}
 	
 	if c.link.PublicId != "" {
-		wsJson(c, linkstat{c.link.PublicId, wsHub.Direct(c) != -1})
+		wsJson(c, linkstat{c.link.PublicId, wsHub.Direct(c) != -1}, false)
 	} else {
-		wsJson(c, linkstat{Remote: false})
+		wsJson(c, linkstat{Remote: false}, false)
 	}
 }
 
@@ -52,7 +52,7 @@ func wsLinkChange(c *Connection, args []string) {
 	
 	peer := plong.FindPublicPeer(args[0])
 	if peer.PublicId == "" {
-		wsJson(c, fail{"No such peer."})
+		wsJson(c, fail{"No such peer."}, false)
 		return
 	}
 	

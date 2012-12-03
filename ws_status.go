@@ -17,5 +17,5 @@ func wsStatus(c *Connection, args []string) {
 		IdentityTimeout int64
 	}
 
-	wsJson(c, hello{Version, Mode, stats{plong.PeerCount(), plong.IdentityCount()}, PlongConfig.IdentityTimeout})
+	wsJson(c, hello{Version, Mode, stats{plong.PeerCount(), plong.IdentityCount()}, PlongConfig.IdentityTimeout}, false)
 }

@@ -17,10 +17,10 @@ func (c *Connection) Control(message string) {
 		c.send <- "\x1bpong"
 	case "wuu2":
 		wsStatus(c, args)
-/*	case "iam":
+	case "iam":
 		wsNewIdentity(c, args)
 	case "whois":
-		wsFindIdentity(c, args) */
+		wsFindIdentity(c, args)
 	case "dalink":
 		wsLinkStatus(c, args)
 	case "chlink":
@@ -28,11 +28,15 @@ func (c *Connection) Control(message string) {
 	}
 }
 
-func wsJson(c *Connection, v interface{}) {
+func wsJson(c *Connection, v interface{}, e bool) {
 	type fail struct {
 		Error string
 	}
-
+	
+	if e {
+		v = fail{fmt.Sprintf("%s", v)}
+	}
+	
 	if v != nil {
 		b, err := json.Marshal(v)
 		if err != nil {
