@@ -7,7 +7,49 @@ import (
 	"strings"
 )
 
-var wsHub map[plong.Peer][]*Connection = make(map[plong.Peer][]*Connection)
+type Hub map[plong.Peer][]*Connection
+var wsHub Hub = make(Hub)
+
+
+func (h Hub) Direct(local plong.Peer, remote plong.Peer) int {
+	return -1
+}
+
+func (h Hub) Add(c *Connection) {
+	_, ok := h[c.peer]
+	if !ok {
+		cs := []*Connection{c}
+		h[c.peer] = cs
+	} else {
+		h[c.peer] = append(h[c.peer], c)
+	}
+}
+
+func (h Hub) Remove(c *Connection) {
+	cs, ok := h[c.peer]
+	if ok {
+		ids := []int{}
+		w := 0
+		for i, con := range cs {
+			if c == con {
+				ids = append(ids, i)
+			}
+		}
+		
+loop:
+		for i, x := range cs {
+			for _, id := range ids {
+				if id == i {
+					continue loop
+				}
+			}
+			cs[w] = x
+			w++
+		}
+		
+		h[c.peer] = cs[:w]
+	}
+}
 
 type Connection struct {
 	ws   *websocket.Conn
@@ -62,11 +104,11 @@ func wsHandler(ws *websocket.Conn) {
 	}
 
 	c := &Connection{send: make(chan string, BufferSize), ws: ws, peer: peer}
-
+	wsHub.Add(c)
 	fmt.Printf("[WebSocket] New connection: “%s”.\n", id)
 
 	defer func() {
-
+		wsHub.Remove(c)
 	}()
 
 	go c.Writer()

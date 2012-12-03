@@ -20,11 +20,11 @@ func (c *Connection) Control(message string) {
 /*	case "iam":
 		wsNewIdentity(c, args)
 	case "whois":
-		wsFindIdentity(c, args)
+		wsFindIdentity(c, args) */
 	case "dalink":
 		wsLinkStatus(c, args)
 	case "chlink":
-		wsLinkChange(c, args) */
+		wsLinkChange(c, args)
 	}
 }
 

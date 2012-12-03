@@ -28,6 +28,11 @@ func routeNewIdentity(res http.ResponseWriter, req *http.Request) {
 	}
 
 	peer := plong.FindPrivatePeer(ir.Private)
+	if peer.PublicId == "" {
+		respond(res, 404, "No such peer.")
+		return
+	}
+	
 	peer.NewIdentity(ir.Passphrase)
 
 	respond(res, 200, nil)
