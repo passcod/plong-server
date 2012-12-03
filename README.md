@@ -47,7 +47,8 @@ USAGE
 -----
 
 This describes a basic 2-player session. The clients are named ‘Bob’ and ‘Alice’
-and there is only one Plong server.
+and there is only one Plong server. You can try it for yourself using the demo
+server at http://canna.plong.me:1501 and ws://canna.plong.me:1501
 
 1. Bob connects to the server.
    
