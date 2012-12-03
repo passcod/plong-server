@@ -22,7 +22,7 @@ func (c *Connection) PassThru(message string) {
 		}
 		
 		remote := rem[0]
-		direct := wsHub.Direct(c.peer, c.link)
+		direct := wsHub.Direct(c)
 		if direct != -1 {
 			remote = rem[direct]
 		} else {
@@ -39,7 +39,7 @@ func wsLinkStatus(c *Connection, args []string) {
 	}
 	
 	if c.link.PublicId != "" {
-		wsJson(c, linkstat{c.link.PublicId, wsHub.Direct(c.peer, c.link) != -1})
+		wsJson(c, linkstat{c.link.PublicId, wsHub.Direct(c) != -1})
 	} else {
 		wsJson(c, linkstat{Remote: false})
 	}

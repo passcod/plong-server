@@ -7,50 +7,6 @@ import (
 	"strings"
 )
 
-type Hub map[plong.Peer][]*Connection
-var wsHub Hub = make(Hub)
-
-
-func (h Hub) Direct(local plong.Peer, remote plong.Peer) int {
-	return -1
-}
-
-func (h Hub) Add(c *Connection) {
-	_, ok := h[c.peer]
-	if !ok {
-		cs := []*Connection{c}
-		h[c.peer] = cs
-	} else {
-		h[c.peer] = append(h[c.peer], c)
-	}
-}
-
-func (h Hub) Remove(c *Connection) {
-	cs, ok := h[c.peer]
-	if ok {
-		ids := []int{}
-		w := 0
-		for i, con := range cs {
-			if c == con {
-				ids = append(ids, i)
-			}
-		}
-		
-loop:
-		for i, x := range cs {
-			for _, id := range ids {
-				if id == i {
-					continue loop
-				}
-			}
-			cs[w] = x
-			w++
-		}
-		
-		h[c.peer] = cs[:w]
-	}
-}
-
 type Connection struct {
 	ws   *websocket.Conn
 	send chan string
@@ -89,7 +45,7 @@ func (c *Connection) Writer() {
 
 func (c *Connection) Close() {
 	fmt.Printf("[Websocket] Closing connection: “%s”.\n", c.peer.PublicId)
-
+	close(c.send)
 	c.ws.Close()
 }
 
