@@ -174,4 +174,4 @@ I'll write thorough documentation later on.
 LICENSE
 -------
 
-No license! This is in the Public Domain! :)
+No license! This is in the [Public Domain](http://passcod.net/license.html)! :)
